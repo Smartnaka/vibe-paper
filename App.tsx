@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   AspectRatio, 
-  ImageSize, 
+  QualitySetting, 
   WallpaperVariation, 
   AppStatus 
 } from './types';
@@ -27,7 +27,7 @@ const App: React.FC = () => {
   const [selectedImage, setSelectedImage] = useState<WallpaperVariation | null>(null);
   const [prompt, setPrompt] = useState('');
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("9:16");
-  const [imageSize, setImageSize] = useState<ImageSize>("2K");
+  const [quality, setQuality] = useState<QualitySetting>("Standard");
   const [referenceImage, setReferenceImage] = useState<WallpaperVariation | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
@@ -58,7 +58,7 @@ const App: React.FC = () => {
         generateSingleImage({
           prompt,
           aspectRatio,
-          size: imageSize,
+          quality,
           referenceImageBase64: referenceImage?.base64
         })
       );
@@ -76,7 +76,7 @@ const App: React.FC = () => {
       }
       setStatus(AppStatus.IDLE);
     }
-  }, [prompt, aspectRatio, imageSize, referenceImage]);
+  }, [prompt, aspectRatio, quality, referenceImage]);
 
   const handleRemix = (image: WallpaperVariation) => {
     setReferenceImage(image);
@@ -123,8 +123,8 @@ const App: React.FC = () => {
         onClose={() => setShowSettings(false)}
         aspectRatio={aspectRatio}
         setAspectRatio={setAspectRatio}
-        imageSize={imageSize}
-        setImageSize={setImageSize}
+        quality={quality}
+        setQuality={setQuality}
       />
 
       {selectedImage && (

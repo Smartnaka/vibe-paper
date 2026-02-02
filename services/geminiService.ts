@@ -1,6 +1,12 @@
 
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
-import { GenerationRequest, WallpaperVariation } from "../types";
+import { GenerationRequest, WallpaperVariation, ImageSize } from "../types";
+
+const qualityToSizeMap: Record<string, ImageSize> = {
+  'Draft': '1K',
+  'Standard': '2K',
+  'High': '4K'
+};
 
 export const generateSingleImage = async (
   request: GenerationRequest
@@ -28,13 +34,15 @@ export const generateSingleImage = async (
     });
   }
 
+  const imageSize = qualityToSizeMap[request.quality] || '1K';
+
   const response = await ai.models.generateContent({
     model: 'gemini-3-pro-image-preview',
     contents: contents,
     config: {
       imageConfig: {
         aspectRatio: request.aspectRatio,
-        imageSize: request.size
+        imageSize: imageSize
       }
     }
   });
@@ -57,7 +65,8 @@ export const generateSingleImage = async (
     base64: base64Data,
     prompt: request.prompt,
     aspectRatio: request.aspectRatio,
-    size: request.size,
+    size: imageSize,
+    quality: request.quality,
     timestamp: Date.now()
   };
 };
