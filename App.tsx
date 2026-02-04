@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   AspectRatio, 
   QualitySetting, 
@@ -24,6 +24,7 @@ const App: React.FC = () => {
   const [hasKey, setHasKey] = useState<boolean | null>(null);
   const [status, setStatus] = useState<AppStatus>(AppStatus.IDLE);
   const [results, setResults] = useState<WallpaperVariation[]>([]);
+  const [history, setHistory] = useState<WallpaperVariation[]>([]);
   const [selectedImage, setSelectedImage] = useState<WallpaperVariation | null>(null);
   const [prompt, setPrompt] = useState('');
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("9:16");
@@ -32,17 +33,34 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
 
+  // Load history from localStorage on mount
   useEffect(() => {
     const init = async () => {
       const isConfigured = await checkApiKey();
       setHasKey(isConfigured);
+      
+      const savedHistory = localStorage.getItem('vibepaper_history');
+      if (savedHistory) {
+        try {
+          setHistory(JSON.parse(savedHistory));
+        } catch (e) {
+          console.error("Failed to parse history", e);
+        }
+      }
     };
     init();
   }, []);
 
+  // Save history when it changes
+  useEffect(() => {
+    if (history.length > 0) {
+      localStorage.setItem('vibepaper_history', JSON.stringify(history.slice(0, 50)));
+    }
+  }, [history]);
+
   const handleSelectKey = async () => {
     await selectApiKey();
-    setHasKey(true); // Proceed assuming success per instructions
+    setHasKey(true);
   };
 
   const generateWallpapers = useCallback(async () => {
@@ -53,7 +71,6 @@ const App: React.FC = () => {
     setResults([]);
 
     try {
-      // Generate 4 in parallel for a better user experience
       const requests = Array(4).fill(null).map(() => 
         generateSingleImage({
           prompt,
@@ -65,6 +82,7 @@ const App: React.FC = () => {
 
       const variations = await Promise.all(requests);
       setResults(variations);
+      setHistory(prev => [...variations, ...prev]);
       setStatus(AppStatus.IDLE);
     } catch (err: any) {
       console.error(err);
@@ -80,22 +98,29 @@ const App: React.FC = () => {
 
   const handleRemix = (image: WallpaperVariation) => {
     setReferenceImage(image);
+    setPrompt(image.prompt);
     setSelectedImage(null);
-    // Focus the prompt area or scroll up
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const clearReference = () => setReferenceImage(null);
+
+  const clearHistory = () => {
+    if (window.confirm("Clear all saved wallpapers?")) {
+      setHistory([]);
+      localStorage.removeItem('vibepaper_history');
+    }
+  };
 
   if (hasKey === false) {
     return <KeyGate onSelectKey={handleSelectKey} />;
   }
 
   return (
-    <div className="min-h-screen bg-black text-white selection:bg-blue-500/30">
+    <div className="min-h-screen bg-black text-white selection:bg-blue-500/30 pb-20">
       <Header onOpenSettings={() => setShowSettings(true)} />
       
-      <main className="max-w-4xl mx-auto px-4 pt-20 pb-40">
+      <main className="max-w-4xl mx-auto px-4 pt-24">
         <PromptArea 
           prompt={prompt}
           setPrompt={setPrompt}
@@ -106,15 +131,20 @@ const App: React.FC = () => {
         />
 
         {error && (
-          <div className="mt-4 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">
+          <div className="mt-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400 text-sm flex items-center gap-3">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
             {error}
           </div>
         )}
 
         <Gallery 
-          items={results} 
+          currentResults={results}
+          history={history}
           isLoading={status === AppStatus.GENERATING}
           onSelect={setSelectedImage}
+          onClearHistory={clearHistory}
         />
       </main>
 
@@ -133,18 +163,6 @@ const App: React.FC = () => {
           onClose={() => setSelectedImage(null)}
           onRemix={handleRemix}
         />
-      )}
-
-      {/* Persistent helper for mobile */}
-      {status === AppStatus.IDLE && results.length > 0 && (
-        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-30">
-          <button 
-            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-            className="glass px-6 py-3 rounded-full text-xs font-medium border border-white/10 shadow-2xl hover:bg-white/10 transition-all"
-          >
-            Create More
-          </button>
-        </div>
       )}
     </div>
   );
